@@ -15,7 +15,7 @@ class TowerData {
   final List<double> fireRate;
   final List<int> upgradeCost;
   final Color color;
-  final String icon;
+  final String spriteName;
 
   const TowerData({
     required this.name,
@@ -25,7 +25,7 @@ class TowerData {
     required this.fireRate,
     required this.upgradeCost,
     required this.color,
-    required this.icon,
+    required this.spriteName,
   });
 }
 
@@ -38,7 +38,7 @@ const Map<TowerType, TowerData> kTowerData = {
     fireRate: [1.2, 1.5, 2.0],
     upgradeCost: [40, 70],
     color: Color(0xFF4CAF50),
-    icon: '🏹',
+    spriteName: 'sprites/tower_archer.png',
   ),
   TowerType.mage: TowerData(
     name: 'Mage',
@@ -48,7 +48,7 @@ const Map<TowerType, TowerData> kTowerData = {
     fireRate: [0.7, 0.9, 1.2],
     upgradeCost: [60, 100],
     color: Color(0xFF9C27B0),
-    icon: '🔮',
+    spriteName: 'sprites/tower_mage.png',
   ),
   TowerType.thunder: TowerData(
     name: 'Thunder',
@@ -58,7 +58,7 @@ const Map<TowerType, TowerData> kTowerData = {
     fireRate: [0.5, 0.7, 1.0],
     upgradeCost: [90, 140],
     color: Color(0xFFFFEB3B),
-    icon: '⚡',
+    spriteName: 'sprites/tower_thunder.png',
   ),
   TowerType.wind: TowerData(
     name: 'Wind',
@@ -68,11 +68,17 @@ const Map<TowerType, TowerData> kTowerData = {
     fireRate: [2.0, 2.5, 3.0],
     upgradeCost: [75, 120],
     color: Color(0xFF00BCD4),
-    icon: '🌀',
+    spriteName: 'sprites/tower_wind.png',
   ),
 };
 
-class Tower extends PositionComponent with HasGameRef<TowerDefenseGame> {
+// Level-up upgrade sprites (shared visual progression)
+const List<String> _levelUpgradeSprites = [
+  'sprites/tower_lv2.png',
+  'sprites/tower_lv3.png',
+];
+
+class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
   final TowerType type;
   int level = 0;
   late TowerData data;
@@ -83,7 +89,6 @@ class Tower extends PositionComponent with HasGameRef<TowerDefenseGame> {
     data = kTowerData[type]!;
     position = pos;
     anchor = Anchor.center;
-    size = Vector2.all(36);
   }
 
   double get damage => data.damage[level];
@@ -93,8 +98,27 @@ class Tower extends PositionComponent with HasGameRef<TowerDefenseGame> {
       level < data.upgradeCost.length ? data.upgradeCost[level] : null;
   bool get canUpgrade => level < 2;
 
+  double get _displaySize => (gameRef.map.tileSize * 1.9).clamp(28.0, 80.0);
+
+  @override
+  Future<void> onLoad() async {
+    await _reloadSprite();
+    final ds = _displaySize;
+    size = Vector2(ds, ds * 1.35);
+    anchor = Anchor.bottomCenter;
+  }
+
+  Future<void> _reloadSprite() async {
+    final spritePath = level == 0
+        ? data.spriteName
+        : _levelUpgradeSprites[(level - 1).clamp(0, 1)];
+    sprite = await gameRef.loadSprite(spritePath);
+  }
+
   void upgrade() {
-    if (canUpgrade) level++;
+    if (!canUpgrade) return;
+    level++;
+    _reloadSprite();
   }
 
   @override
@@ -124,67 +148,67 @@ class Tower extends PositionComponent with HasGameRef<TowerDefenseGame> {
   }
 
   void _shoot(Enemy target) {
-    final projColor = switch (type) {
-      TowerType.archer => const Color(0xFF8D6E63),
-      TowerType.mage => Colors.purple,
-      TowerType.thunder => Colors.yellow,
-      TowerType.wind => Colors.cyan,
+    final projSprite = switch (type) {
+      TowerType.archer => 'sprites/proj_arrow.png',
+      TowerType.mage => 'sprites/proj_fire.png',
+      TowerType.thunder => 'sprites/proj_fire.png',
+      TowerType.wind => 'sprites/proj_ice.png',
     };
     gameRef.add(Projectile(
       startPos: position.clone(),
       target: target,
       damage: damage,
-      color: projColor,
-      speed: type == TowerType.thunder ? 400 : 270,
-      radius: type == TowerType.thunder ? 7 : 5,
+      spriteName: projSprite,
+      speed: type == TowerType.thunder ? 420 : 280,
     ));
   }
 
   @override
   void render(Canvas canvas) {
+    // Range ring (drawn in world space before sprite)
     if (selected) {
+      final dy = size.y / 2; // offset because anchor=bottomCenter
       canvas.drawCircle(
-        Offset.zero,
+        Offset(0, dy),
         range,
         Paint()
           ..color = data.color.withOpacity(0.12)
           ..style = PaintingStyle.fill,
       );
       canvas.drawCircle(
-        Offset.zero,
+        Offset(0, dy),
         range,
         Paint()
-          ..color = data.color.withOpacity(0.5)
+          ..color = data.color.withOpacity(0.55)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );
     }
 
-    canvas.drawCircle(Offset.zero, 17, Paint()..color = Colors.grey.shade800);
-    canvas.drawCircle(
-        Offset.zero, 15, Paint()..color = data.color.withOpacity(0.85));
-    canvas.drawCircle(
-      Offset.zero,
-      15,
-      Paint()
-        ..color = selected ? Colors.white : Colors.white38
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = selected ? 2.5 : 1,
-    );
+    // Sprite (SpriteComponent renders at top-left = (0,0) relative to component)
+    super.render(canvas);
 
+    // Level pip stars drawn just below sprite center
+    final cx = size.x / 2;
+    final cy = size.y - 8;
     for (int i = 0; i <= level; i++) {
-      final angle = (i - level / 2.0) * 0.45;
+      final angle = (i - level / 2.0) * 0.5;
       canvas.drawCircle(
-        Offset(sin(angle) * 10, -cos(angle) * 10),
-        2.5,
+        Offset(cx + sin(angle) * 10, cy),
+        3.0,
         Paint()..color = Colors.amber,
       );
     }
 
-    final tp = TextPainter(
-      text: TextSpan(text: data.icon, style: const TextStyle(fontSize: 15)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    // Selection highlight outline
+    if (selected) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()
+          ..color = data.color.withOpacity(0.6)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
   }
 }

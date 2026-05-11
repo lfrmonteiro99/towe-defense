@@ -2,23 +2,27 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'enemy.dart';
 
-class Projectile extends PositionComponent {
+class Projectile extends SpriteComponent {
   final Enemy target;
   final double damage;
   final double speed;
-  final Color color;
-  final double radius;
+  final String spriteName;
 
   Projectile({
     required Vector2 startPos,
     required this.target,
     required this.damage,
+    required this.spriteName,
     this.speed = 300,
-    this.color = Colors.yellow,
-    this.radius = 5,
   }) {
     position = startPos.clone();
     anchor = Anchor.center;
+    size = Vector2(32, 14);
+  }
+
+  @override
+  Future<void> onLoad() async {
+    sprite = await game.loadSprite(spriteName);
   }
 
   @override
@@ -29,6 +33,12 @@ class Projectile extends PositionComponent {
     }
     final dir = target.position - position;
     final dist = dir.length;
+
+    // Rotate to face direction of travel
+    if (dir.length2 > 0.01) {
+      angle = dir.screenAngle();
+    }
+
     final step = speed * dt;
     if (step >= dist) {
       target.takeDamage(damage);
@@ -40,14 +50,11 @@ class Projectile extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawCircle(Offset.zero, radius, Paint()..color = color);
-    canvas.drawCircle(
-      Offset.zero,
-      radius,
-      Paint()
-        ..color = Colors.white70
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    if (sprite == null) {
+      // Fallback circle if sprite not loaded yet
+      canvas.drawCircle(Offset.zero, 5, Paint()..color = Colors.yellow);
+      return;
+    }
+    super.render(canvas);
   }
 }

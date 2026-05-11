@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'game/tower_defense_game.dart';
 import 'game/tower.dart';
+// ignore: unused_import (used via Image.asset in the menu)
 
 void main() {
   runApp(const TowerDefenseApp());
@@ -135,10 +136,10 @@ class _TowerMenuOverlayState extends State<TowerMenuOverlay> {
   int _selected = 0;
 
   static const _defs = [
-    {'name': 'Archer', 'cost': 50, 'icon': '🏹', 'color': Color(0xFF4CAF50)},
-    {'name': 'Mage', 'cost': 80, 'icon': '🔮', 'color': Color(0xFF9C27B0)},
-    {'name': 'Thunder', 'cost': 120, 'icon': '⚡', 'color': Color(0xFFFFEB3B)},
-    {'name': 'Wind', 'cost': 100, 'icon': '🌀', 'color': Color(0xFF00BCD4)},
+    {'name': 'Archer',  'cost': 50,  'sprite': 'assets/images/sprites/tower_archer.png',  'color': Color(0xFF4CAF50)},
+    {'name': 'Mage',    'cost': 80,  'sprite': 'assets/images/sprites/tower_mage.png',    'color': Color(0xFF9C27B0)},
+    {'name': 'Thunder', 'cost': 120, 'sprite': 'assets/images/sprites/tower_thunder.png', 'color': Color(0xFFFFEB3B)},
+    {'name': 'Wind',    'cost': 100, 'sprite': 'assets/images/sprites/tower_wind.png',    'color': Color(0xFF00BCD4)},
   ];
 
   @override
@@ -182,8 +183,14 @@ class _TowerMenuOverlayState extends State<TowerMenuOverlay> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(def['icon'] as String,
-                            style: const TextStyle(fontSize: 22)),
+                        Image.asset(
+                            def['sprite'] as String,
+                            width: 40,
+                            height: 44,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.layers, size: 28, color: Colors.white54),
+                          ),
                         const SizedBox(height: 2),
                         Text(def['name'] as String,
                             style: const TextStyle(

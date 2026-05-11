@@ -68,17 +68,25 @@ class GameMap extends Component with HasGameRef<TowerDefenseGame> {
     }
   }
 
+  Vector2 _tileMidCenter(int col, int row) {
+    return Vector2(
+      col * tileSize + tileSize / 2,
+      row * tileSize + tileSize / 2 + 44,
+    );
+  }
+
   void _buildPathPoints() {
     pathPoints = kPathWaypoints.map((wp) {
       final (c, r) = wp;
-      return tileCenter(c, r);
+      return _tileMidCenter(c, r);
     }).toList();
   }
 
+  // Returns the bottom-center of the tile (anchor point for towers)
   Vector2 tileCenter(int col, int row) {
     return Vector2(
       col * tileSize + tileSize / 2,
-      row * tileSize + tileSize / 2 + 44, // offset for top HUD bar
+      (row + 1) * tileSize + 44, // bottom edge of tile + HUD offset
     );
   }
 

@@ -101,10 +101,11 @@ class TowerDefenseGame extends FlameGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     final tapPos = event.localPosition;
 
-    // Check tap on existing tower
+    // Check tap on existing tower (anchor=bottomCenter, so center is offset up)
     for (final child in children) {
       if (child is Tower) {
-        if ((child.position - tapPos).length < 20) {
+        final towerCenter = child.position - Vector2(0, child.size.y / 2);
+        if ((towerCenter - tapPos).length < child.size.x * 0.7) {
           _handleTowerTap(child);
           return;
         }
@@ -126,7 +127,10 @@ class TowerDefenseGame extends FlameGame with TapCallbacks {
 
     final center = map.tileCenter(col, row);
     for (final child in children) {
-      if (child is Tower && (child.position - center).length < map.tileSize * 0.6) return;
+      if (child is Tower) {
+        final towerCenter = child.position - Vector2(0, child.size.y / 2);
+        if ((towerCenter - center).length < map.tileSize * 0.8) return;
+      }
     }
 
     final towerType = TowerType.values[selectedTowerType];

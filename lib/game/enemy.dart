@@ -5,18 +5,24 @@ import 'tower_defense_game.dart';
 
 enum EnemyType { goblin, orc, troll, boss }
 
-class Enemy extends PositionComponent with HasGameRef<TowerDefenseGame> {
+const Map<EnemyType, String> _enemySprites = {
+  EnemyType.goblin: 'sprites/enemy_goblin.png',
+  EnemyType.orc: 'sprites/enemy_orc.png',
+  EnemyType.troll: 'sprites/enemy_troll.png',
+  EnemyType.boss: 'sprites/enemy_boss.png',
+};
+
+class Enemy extends SpriteComponent with HasGameRef<TowerDefenseGame> {
   final EnemyType type;
   late double maxHp;
   late double hp;
   late double speed;
   late int reward;
-  late Color _color;
-  late double _radius;
 
   int _pathIndex = 0;
   bool _dead = false;
   bool _reachedEnd = false;
+  bool _processed = false; // guard against double-processing
 
   Enemy({required this.type, required int wave}) {
     _initStats(wave);
@@ -30,29 +36,21 @@ class Enemy extends PositionComponent with HasGameRef<TowerDefenseGame> {
         maxHp = 60 * scale;
         speed = 80;
         reward = 10;
-        _color = Colors.green;
-        _radius = 10;
         break;
       case EnemyType.orc:
         maxHp = 150 * scale;
         speed = 50;
         reward = 20;
-        _color = Colors.brown;
-        _radius = 13;
         break;
       case EnemyType.troll:
         maxHp = 300 * scale;
         speed = 35;
         reward = 35;
-        _color = Colors.blueGrey;
-        _radius = 16;
         break;
       case EnemyType.boss:
         maxHp = 800 * scale;
         speed = 30;
         reward = 100;
-        _color = Colors.deepPurple;
-        _radius = 20;
         break;
     }
     hp = maxHp;
@@ -67,20 +65,44 @@ class Enemy extends PositionComponent with HasGameRef<TowerDefenseGame> {
     if (hp <= 0) _dead = true;
   }
 
+  double get _displayW {
+    final ts = gameRef.map.tileSize;
+    return switch (type) {
+      EnemyType.goblin => ts * 1.2,
+      EnemyType.orc    => ts * 1.4,
+      EnemyType.troll  => ts * 2.0,
+      EnemyType.boss   => ts * 2.4,
+    };
+  }
+
   @override
   Future<void> onLoad() async {
+    sprite = await gameRef.loadSprite(_enemySprites[type]!);
+    final w = _displayW;
+    // Maintain sprite aspect ratio: troll is wide (248x108), others are squarish
+    final origAspect = switch (type) {
+      EnemyType.troll => 248.0 / 108.0,
+      EnemyType.boss  => 258.0 / 262.0,
+      EnemyType.orc   => 120.0 / 130.0,
+      EnemyType.goblin => 115.0 / 115.0,
+    };
+    size = Vector2(w, w / origAspect);
     position = gameRef.map.pathPoints.first.clone();
   }
 
   @override
   void update(double dt) {
+    if (_processed) return;
+
     if (_dead) {
+      _processed = true;
       gameRef.hudNotifier.addGold(reward);
       gameRef.enemies.remove(this);
       removeFromParent();
       return;
     }
     if (_reachedEnd) {
+      _processed = true;
       gameRef.hudNotifier.loseLife();
       gameRef.enemies.remove(this);
       removeFromParent();
@@ -107,25 +129,14 @@ class Enemy extends PositionComponent with HasGameRef<TowerDefenseGame> {
 
   @override
   void render(Canvas canvas) {
-    canvas.drawCircle(
-      Offset(_radius * 0.1, _radius * 0.2),
-      _radius,
-      Paint()..color = Colors.black38,
-    );
-    canvas.drawCircle(Offset.zero, _radius, Paint()..color = _color);
-    canvas.drawCircle(
-      Offset.zero,
-      _radius,
-      Paint()
-        ..color = Colors.white54
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
+    // Sprite
+    super.render(canvas);
 
-    final barW = _radius * 2.4;
-    final barH = 4.0;
+    // Health bar (above sprite)
+    final barW = size.x;
+    const barH = 5.0;
     final barX = -barW / 2;
-    final barY = -_radius - 9;
+    final barY = -size.y / 2 - 9;
     canvas.drawRect(
       Rect.fromLTWH(barX, barY, barW, barH),
       Paint()..color = Colors.red.shade900,
