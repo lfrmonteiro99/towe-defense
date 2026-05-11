@@ -6,7 +6,7 @@
 .pub-cache/
 .pub/
 build/
-pubspec.lock
+# pubspec.lock is intentionally NOT ignored — apps commit it for reproducible builds.
 
 # Android
 **/android/**/gradle-wrapper.jar

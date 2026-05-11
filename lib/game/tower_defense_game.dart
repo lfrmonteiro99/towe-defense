@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'map.dart';
 import 'tower.dart';
 import 'enemy.dart';
+import 'projectile.dart';
 import 'hud_notifier.dart';
 
 class TowerDefenseGame extends FlameGame with TapCallbacks {
@@ -14,7 +15,6 @@ class TowerDefenseGame extends FlameGame with TapCallbacks {
   int selectedTowerType = 0;
   Tower? _selectedTower;
 
-  // Wave spawning state
   List<(EnemyType, int)> _waveSpawnList = [];
   double _waveTimerMs = 0;
   int _spawnIndex = 0;
@@ -84,8 +84,9 @@ class TowerDefenseGame extends FlameGame with TapCallbacks {
     overlays.remove('victory');
     hudNotifier.reset();
 
+    // Remove all game-object components (towers, enemies, and in-flight projectiles).
     for (final child in List.of(children)) {
-      if (child is Tower || child is Enemy) {
+      if (child is Tower || child is Enemy || child is Projectile) {
         child.removeFromParent();
       }
     }
@@ -101,50 +102,54 @@ class TowerDefenseGame extends FlameGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     final tapPos = event.localPosition;
 
-    // Check tap on existing tower (anchor=bottomCenter, so center is offset up)
+    // Check tap on an existing tower.
+    // Tower.position = bottom-center (anchor=bottomCenter); visual centre is offset up by size.y/2.
     for (final child in children) {
       if (child is Tower) {
-        final towerCenter = child.position - Vector2(0, child.size.y / 2);
-        if ((towerCenter - tapPos).length < child.size.x * 0.7) {
+        final visualCenter = child.position - Vector2(0, child.size.y / 2);
+        if ((visualCenter - tapPos).length < child.size.x * 0.7) {
           _handleTowerTap(child);
           return;
         }
       }
     }
 
-    // Deselect
+    // Tap elsewhere while a tower is selected → deselect.
     if (_selectedTower != null) {
       _selectedTower!.selected = false;
       _selectedTower = null;
       return;
     }
 
-    // Place new tower
+    // Place a new tower.
     final tile = map.screenToTile(tapPos);
     if (tile == null) return;
     final (col, row) = tile;
     if (map.isPathTile(col, row)) return;
 
-    final center = map.tileCenter(col, row);
+    // Reject if a tower is already placed on this tile.
+    // child.position IS the placement point (bottomCenter anchor = bottom of tile).
+    final placementPt = map.tilePlacementPoint(col, row);
     for (final child in children) {
-      if (child is Tower) {
-        final towerCenter = child.position - Vector2(0, child.size.y / 2);
-        if ((towerCenter - center).length < map.tileSize * 0.8) return;
-      }
+      if (child is Tower &&
+          (child.position - placementPt).length < map.tileSize * 0.8) return;
     }
 
     final towerType = TowerType.values[selectedTowerType];
     final cost = kTowerData[towerType]!.baseCost;
     if (!hudNotifier.spendGold(cost)) return;
 
-    add(Tower(type: towerType, pos: center));
+    add(Tower(type: towerType, pos: placementPt));
   }
 
   void _handleTowerTap(Tower tower) {
     if (_selectedTower == tower) {
-      // Second tap: upgrade if possible
+      // Second tap on the same tower → upgrade.
       final cost = tower.upgradeCost;
       if (cost != null && hudNotifier.spendGold(cost)) {
+        // upgrade() is async (sprite reload); result is intentionally not awaited here
+        // because game state (level, damage) updates synchronously and the sprite
+        // swap completes on the next frame from the image cache.
         tower.upgrade();
       }
       tower.selected = false;

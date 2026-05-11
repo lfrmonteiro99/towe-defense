@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -72,7 +73,6 @@ const Map<TowerType, TowerData> kTowerData = {
   ),
 };
 
-// Level-up upgrade sprites (shared visual progression)
 const List<String> _levelUpgradeSprites = [
   'sprites/tower_lv2.png',
   'sprites/tower_lv3.png',
@@ -88,7 +88,7 @@ class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
   Tower({required this.type, required Vector2 pos}) {
     data = kTowerData[type]!;
     position = pos;
-    anchor = Anchor.center;
+    // anchor set to bottomCenter in onLoad after size is known
   }
 
   double get damage => data.damage[level];
@@ -102,10 +102,10 @@ class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
 
   @override
   Future<void> onLoad() async {
+    anchor = Anchor.bottomCenter;
     await _reloadSprite();
     final ds = _displaySize;
     size = Vector2(ds, ds * 1.35);
-    anchor = Anchor.bottomCenter;
   }
 
   Future<void> _reloadSprite() async {
@@ -115,10 +115,11 @@ class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
     sprite = await gameRef.loadSprite(spritePath);
   }
 
-  void upgrade() {
+  // Returns a Future so callers can await the sprite swap if needed.
+  Future<void> upgrade() async {
     if (!canUpgrade) return;
     level++;
-    _reloadSprite();
+    await _reloadSprite();
   }
 
   @override
@@ -149,10 +150,10 @@ class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
 
   void _shoot(Enemy target) {
     final projSprite = switch (type) {
-      TowerType.archer => 'sprites/proj_arrow.png',
-      TowerType.mage => 'sprites/proj_fire.png',
+      TowerType.archer  => 'sprites/proj_arrow.png',
+      TowerType.mage    => 'sprites/proj_fire.png',
       TowerType.thunder => 'sprites/proj_fire.png',
-      TowerType.wind => 'sprites/proj_ice.png',
+      TowerType.wind    => 'sprites/proj_ice.png',
     };
     gameRef.add(Projectile(
       startPos: position.clone(),
@@ -165,18 +166,20 @@ class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
 
   @override
   void render(Canvas canvas) {
-    // Range ring (drawn in world space before sprite)
+    // With anchor=bottomCenter, (0,0) in render space = bottom-center of sprite.
+    // The sprite body spans (-size.x/2, -size.y) → (size.x/2, 0).
+
+    // Range ring centred on the tower base.
     if (selected) {
-      final dy = size.y / 2; // offset because anchor=bottomCenter
       canvas.drawCircle(
-        Offset(0, dy),
+        Offset.zero,
         range,
         Paint()
           ..color = data.color.withOpacity(0.12)
           ..style = PaintingStyle.fill,
       );
       canvas.drawCircle(
-        Offset(0, dy),
+        Offset.zero,
         range,
         Paint()
           ..color = data.color.withOpacity(0.55)
@@ -185,25 +188,23 @@ class Tower extends SpriteComponent with HasGameRef<TowerDefenseGame> {
       );
     }
 
-    // Sprite (SpriteComponent renders at top-left = (0,0) relative to component)
+    // Draw sprite (SpriteComponent honours anchor automatically).
     super.render(canvas);
 
-    // Level pip stars drawn just below sprite center
-    final cx = size.x / 2;
-    final cy = size.y - 8;
+    // Level pips just below the base (positive-y = below base in render space).
     for (int i = 0; i <= level; i++) {
       final angle = (i - level / 2.0) * 0.5;
       canvas.drawCircle(
-        Offset(cx + sin(angle) * 10, cy),
+        Offset(sin(angle) * 10, 8),
         3.0,
         Paint()..color = Colors.amber,
       );
     }
 
-    // Selection highlight outline
+    // Selection highlight outline around the sprite bounding box.
     if (selected) {
       canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.x, size.y),
+        Rect.fromLTWH(-size.x / 2, -size.y, size.x, size.y),
         Paint()
           ..color = data.color.withOpacity(0.6)
           ..style = PaintingStyle.stroke

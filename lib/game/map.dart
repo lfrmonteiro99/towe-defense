@@ -82,11 +82,12 @@ class GameMap extends Component with HasGameRef<TowerDefenseGame> {
     }).toList();
   }
 
-  // Returns the bottom-center of the tile (anchor point for towers)
-  Vector2 tileCenter(int col, int row) {
+  // Returns the bottom-center of the tile — the placement anchor for towers
+  // (towers use Anchor.bottomCenter so their base sits flush with the tile floor).
+  Vector2 tilePlacementPoint(int col, int row) {
     return Vector2(
       col * tileSize + tileSize / 2,
-      (row + 1) * tileSize + 44, // bottom edge of tile + HUD offset
+      (row + 1) * tileSize + 44,
     );
   }
 

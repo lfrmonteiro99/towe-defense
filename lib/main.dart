@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 import 'game/tower_defense_game.dart';
 import 'game/tower.dart';
-// ignore: unused_import (used via Image.asset in the menu)
 
 void main() {
   runApp(const TowerDefenseApp());
@@ -144,7 +143,6 @@ class _TowerMenuOverlayState extends State<TowerMenuOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    widget.game.selectedTowerType = _selected;
     return Positioned(
       bottom: 0,
       left: 0,
@@ -167,7 +165,10 @@ class _TowerMenuOverlayState extends State<TowerMenuOverlay> {
                 final sel = i == _selected;
                 final color = def['color'] as Color;
                 return GestureDetector(
-                  onTap: () => setState(() => _selected = i),
+                  onTap: () {
+                    setState(() => _selected = i);
+                    widget.game.selectedTowerType = i;
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(

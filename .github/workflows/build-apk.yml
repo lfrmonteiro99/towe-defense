@@ -2,8 +2,8 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, master, claude/tower-defense-game-XyUTx]
-  workflow_dispatch:          # allows manual trigger from GitHub UI
+    branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -51,12 +51,7 @@ jobs:
 
       - name: Build release APK (signed)
         if: ${{ secrets.KEYSTORE_BASE64 != '' }}
-        run: |
-          flutter build apk --release \
-            --dart-define=KEYSTORE_PATH=release.jks \
-            --dart-define=KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} \
-            --dart-define=KEY_ALIAS=${{ secrets.KEY_ALIAS }} \
-            --dart-define=KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+        run: flutter build apk --release
         env:
           KEYSTORE_PATH: android/app/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}

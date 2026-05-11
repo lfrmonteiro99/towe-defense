@@ -79,14 +79,10 @@ class Enemy extends SpriteComponent with HasGameRef<TowerDefenseGame> {
   Future<void> onLoad() async {
     sprite = await gameRef.loadSprite(_enemySprites[type]!);
     final w = _displayW;
-    // Maintain sprite aspect ratio: troll is wide (248x108), others are squarish
-    final origAspect = switch (type) {
-      EnemyType.troll => 248.0 / 108.0,
-      EnemyType.boss  => 258.0 / 262.0,
-      EnemyType.orc   => 120.0 / 130.0,
-      EnemyType.goblin => 115.0 / 115.0,
-    };
-    size = Vector2(w, w / origAspect);
+    // Derive height from the sprite's natural dimensions so re-cropping assets
+    // never requires touching this code.
+    final src = sprite!.srcSize;
+    size = Vector2(w, src.y == 0 ? w : w * src.y / src.x);
     position = gameRef.map.pathPoints.first.clone();
   }
 
